@@ -540,6 +540,7 @@ function checkLevelComplete() {
 // 游戏流程
 function gameOver(msg) {
     gameState = 'gameover';
+    clearKeys();
     document.getElementById('btnStart').textContent = '重新开始';
     document.getElementById('btnPause').disabled = true;
     document.getElementById('btnPause').textContent = '暂停';
@@ -683,6 +684,13 @@ function draw() {
 function gameLoop() { update(); draw(); requestAnimationFrame(gameLoop); }
 
 // 输入
+function clearKeys() {
+    for (var k in keys) { if (keys.hasOwnProperty(k)) keys[k] = false; }
+}
+
+// 窗口失焦时清除所有按键，防止按键卡住
+window.addEventListener('blur', function() { clearKeys(); });
+
 document.addEventListener('keydown', function(e) {
     keys[e.key] = true;
     if (e.key === 'p' || e.key === 'P') { togglePause(); e.preventDefault(); }
@@ -692,6 +700,7 @@ document.addEventListener('keyup', function(e) { keys[e.key] = false; });
 
 // 按钮
 function toggleGame() {
+    clearKeys();
     var btn = document.getElementById('btnStart');
     var btnPause = document.getElementById('btnPause');
     if (gameState === 'playing') {
@@ -704,6 +713,7 @@ function toggleGame() {
 }
 
 function togglePause() {
+    clearKeys();
     if (gameState === 'playing') { gameState = 'paused'; document.getElementById('btnPause').textContent = '继续'; }
     else if (gameState === 'paused') { gameState = 'playing'; document.getElementById('btnPause').textContent = '暂停'; }
 }
