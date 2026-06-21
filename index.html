@@ -99,12 +99,12 @@ const ENEMY_FIRE_COOLDOWN = 60;
 const PLAYER_INVINCIBLE = 90;
 
 const DIR_UP = 0, DIR_RIGHT = 1, DIR_DOWN = 2, DIR_LEFT = 3;
-const EMPTY = 0, BRICK = 1, STEEL = 2, WATER = 3, BASE = 4, FOREST = 5;
+const EMPTY = 0, BRICK = 1, STEEL = 2, WATER = 3, BASE = 4, FOREST = 5, ENEMY_BASE = 6;
 
 // 关卡地图
 const LEVELS = [
     [ // 第1关
-        [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
+        [0,0,0,0,0,0,0,0,6,6,6,0,0,0,0,0,0,0,0],
         [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
         [0,0,1,1,0,0,1,1,0,0,1,0,0,1,1,0,0,1,0],
         [0,0,1,0,0,0,0,1,0,0,1,0,0,1,0,0,0,1,0],
@@ -120,7 +120,7 @@ const LEVELS = [
         [0,0,0,0,0,0,0,0,0,4,4,4,0,0,0,0,0,0,0],
     ],
     [ // 第2关
-        [0,0,1,1,1,0,0,0,1,1,1,0,0,0,1,1,1,0,0],
+        [0,0,1,1,1,0,0,0,6,6,6,0,0,0,1,1,1,0,0],
         [0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0],
         [0,0,1,0,1,0,0,0,1,0,1,0,0,0,1,0,1,0,0],
         [0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0],
@@ -136,7 +136,7 @@ const LEVELS = [
         [0,0,0,0,0,0,0,0,0,4,4,4,0,0,0,0,0,0,0],
     ],
     [ // 第3关
-        [0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
+        [0,0,1,0,1,0,0,0,6,6,6,0,0,0,1,0,1,0,0],
         [0,0,1,0,1,0,0,0,0,0,0,0,0,0,1,0,1,0,0],
         [0,0,0,0,0,0,0,1,1,0,1,1,0,0,0,0,0,0,0],
         [0,2,0,0,0,2,0,1,0,0,0,1,0,2,0,0,0,2,0],
@@ -202,8 +202,10 @@ function getTile(col, row) {
 }
 
 function destroyTile(col, row) {
-    if (col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS && map[row][col] === BRICK) {
-        map[row][col] = EMPTY;
+    if (col >= 0 && col < GRID_COLS && row >= 0 && row < GRID_ROWS) {
+        if (map[row][col] === BRICK || map[row][col] === ENEMY_BASE) {
+            map[row][col] = EMPTY;
+        }
     }
 }
 
@@ -356,7 +358,29 @@ Bullet.prototype.update = function() {
     var tile = getTile(g.col, g.row);
     if (tile === BRICK) { destroyTile(g.col, g.row); this.alive = false; this.spawnExplosion(); return; }
     if (tile === STEEL) { this.alive = false; this.spawnExplosion(); return; }
-    if (tile === BASE) { this.alive = false; this.spawnExplosion(true); gameOver('基地被摧毁了！'); return; }
+    if (tile === BASE) {
+        // 只有敌人子弹打到己方基地才游戏结束
+        if (this.owner && !this.owner.isPlayer) {
+            this.alive = false; this.spawnExplosion(true); gameOver('基地被摧毁了！'); return;
+        }
+        // 玩家子弹打自己基地：反弹
+        this.alive = false; this.spawnExplosion(); return;
+    }
+    if (tile === ENEMY_BASE) {
+        // 玩家子弹可摧毁敌方基地
+        if (this.owner && this.owner.isPlayer) {
+            destroyTile(g.col, g.row); this.alive = false; this.spawnExplosion(true);
+            if (allEnemyBasesDestroyed()) {
+                score += 500;
+                level++; updateUI();
+                if (level >= LEVELS.length * 3) { gameOver('恭喜通关！你赢了！🎉'); }
+                else { setTimeout(function() { if (gameState === 'playing') setupLevel(); }, 1500); }
+            }
+            return;
+        }
+        // 敌人子弹打自己基地：反弹
+        this.alive = false; this.spawnExplosion(); return;
+    }
 
     if (this.owner && this.owner.isPlayer) {
         for (var i = 0; i < enemies.length; i++) {
@@ -496,6 +520,15 @@ function setupLevel() {
     updateUI();
 }
 
+function allEnemyBasesDestroyed() {
+    for (var row = 0; row < GRID_ROWS; row++) {
+        for (var col = 0; col < GRID_COLS; col++) {
+            if (map[row][col] === ENEMY_BASE) return false;
+        }
+    }
+    return true;
+}
+
 function checkLevelComplete() {
     if (enemies.every(function(e) { return !e.alive; })) {
         level++; score += 500; updateUI();
@@ -597,6 +630,12 @@ function draw() {
                 ctx.fillStyle = '#FF6D00'; ctx.font = '22px serif';
                 ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                 ctx.fillText('⭐', x+TILE_SIZE/2, y+TILE_SIZE/2);
+            } else if (tile === ENEMY_BASE) {
+                ctx.fillStyle = '#D32F2F'; ctx.fillRect(x, y, TILE_SIZE, TILE_SIZE);
+                ctx.strokeStyle = '#B71C1C'; ctx.lineWidth = 2; ctx.strokeRect(x+2, y+2, TILE_SIZE-4, TILE_SIZE-4);
+                ctx.fillStyle = '#FFF'; ctx.font = '20px serif';
+                ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('🎯', x+TILE_SIZE/2, y+TILE_SIZE/2);
             }
         }
     }
