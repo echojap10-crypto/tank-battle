@@ -454,7 +454,10 @@ function drawExplosions() {
 
 // 玩家
 function spawnPlayer() {
-    player = new Tank(CANVAS_W / 2, CANVAS_H - TILE_SIZE * 1.5, DIR_UP, '#4CAF50', true);
+    // 出生在己方基地正上方（基地在第9-11列、第13行）
+    var baseCenterX = 10 * TILE_SIZE + TILE_SIZE / 2;  // 第10列中心 = 420px
+    var spawnY = 12 * TILE_SIZE + TILE_SIZE / 2;       // 第12行中心，基地正上方
+    player = new Tank(baseCenterX, spawnY, DIR_UP, '#4CAF50', true);
     player.invincible = PLAYER_INVINCIBLE;
 }
 
@@ -515,8 +518,8 @@ function setupLevel() {
         spawnQueue.push({ x: sp.x + TILE_SIZE / 2, y: sp.y + TILE_SIZE / 2 });
     }
     spawnTimer = 0;
-    if (!player || !player.alive) spawnPlayer();
-    else player.invincible = PLAYER_INVINCIBLE;
+    // 每关开始玩家坦克复活在己方基地旁
+    spawnPlayer();
     updateUI();
 }
 
